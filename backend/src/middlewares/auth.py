@@ -17,3 +17,10 @@ def can_write(user=Depends(current_user)):
 def admin_only(user=Depends(current_user)):
     if user.role != 'admin': raise HTTPException(403, '需要业务负责人批准')
     return user
+def trial_owner(user=Depends(current_user)):
+    """盲评试验的登记、锁定、封存、揭盲与终止只允许负责人执行。"""
+    if user.role != 'admin': raise HTTPException(403, '盲评试验需要业务负责人操作')
+    return user
+def inspector_or_owner(user=Depends(current_user)):
+    if user.role not in ('admin','inspector'): raise HTTPException(403, '仅检验员或负责人可登记检验件数')
+    return user

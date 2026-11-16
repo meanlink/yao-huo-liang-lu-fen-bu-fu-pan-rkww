@@ -4,7 +4,9 @@
 
 ## 模块与业务流程
 数据接入（JSON/CSV、字段验证、批次指纹）→ 参数化分析（异步 Python worker）→ 结果复核（指标、图形、明细、解释、批准）→ 定时分发（本地收件箱、CSV/JSON、SHA256）；另有业务总览和审计轨迹。
-三个贯穿全栈的实体：Dataset 数据批次、Job 分析任务、Report 分发计划；辅助 User、Audit、Delivery。
+三个贯穿全栈的实体：Dataset 数据批次、Job 分析任务、Report 分发计划；另有 BlindTrial 盲评试验（含 TrialGroup / TrialUnit / BatchClaim / Inspection / BlindReview）；辅助 User、Audit、Delivery。
+
+盲评试验覆盖"按窑线登记 → 锁定占用 → 盲码检验 → 封存 → 揭盲复盘 → 批准"全流程：负责人登记与操作，检验员只见盲码登记件数，越权查询与下载同样隐藏配方；同一窑次由部分唯一索引保证只归一个在途试验；封存与检验修订并发时拒绝过期版本；复盘生成幂等、可在 worker 重启后恢复。
 
 ## 快速启动
 ```bash
@@ -21,6 +23,7 @@ docker compose exec -T backend python -m scripts.seed_demo
 |admin@demo.local|Demo123!|接入、执行、批准、分发、暂停、读取与下载|
 |analyst@demo.local|Demo123!|接入、执行、读取与下载；不能批准或安排分发|
 |viewer@demo.local|Demo123!|只读与下载|
+|inspector@demo.local|Demo123!|盲码检验：只看盲码登记与修订件数|
 
 ## 技术与本地开发
 Python 3.12 / FastAPI / SQLAlchemy / NumPy / SciPy / scikit-learn；PostgreSQL 16；Redis 7；Nginx；原生 HTML CSS JavaScript ES modules（用户指定）。后端所有校验、持久化和算法在服务端。无前端打包步骤。
@@ -29,7 +32,7 @@ Python 3.12 / FastAPI / SQLAlchemy / NumPy / SciPy / scikit-learn；PostgreSQL 1
 ## 目录与工程约定
 backend/src/{models,schemas,services,routes,controllers,middlewares,constants,config,utils}；backend/scripts/seed_demo.py；backend/migrations/initial.py。
 frontend/src/{api,stores,types,components/common,hooks,pages,router,utils,constants}。
-Role 枚举：admin/analyst/viewer；JobStatus：queued/running/completed/failed。后端 backend/src/constants/enums.py，前端 frontend/src/constants/enums.js；路由权限在 middlewares/auth.py；页面按相同角色控制操作入口。
+Role 枚举：admin/analyst/viewer/inspector；JobStatus：queued/running/completed/failed；TrialStatus：registered/locked/sealed/unblinded/terminated。后端 backend/src/constants/enums.py，前端 frontend/src/constants/enums.js；路由权限在 middlewares/auth.py；页面按相同角色控制操作入口。
 
 ## 环境变量与 Docker
 COMPOSE_PROJECT_NAME=kiln-yield；FRONTEND_PORT=18200；BACKEND_PORT=19200；DB_PORT=17700；DB_PASSWORD、JWT_SECRET 见 .env.example；SEED_DEMO 默认 true。共享命名产物卷供后端下载与 worker 写入，数据库/Redis 各持久卷。
@@ -37,6 +40,8 @@ COMPOSE_PROJECT_NAME=kiln-yield；FRONTEND_PORT=18200；BACKEND_PORT=19200；DB_
 错误响应、请求编号、Redis 每 IP 每分钟 240 次限流、JWT 和数据库操作审计。演示密钥与密码仅供本机模拟；生产部署前配置独立密钥与账号。
 
 ## 数据与验收
+盲评试验接口：`POST /trials`、`GET /trials`、`GET /trials/{id}`、`POST /trials/{id}/lock|terminate|seal|unblind`、`GET /trials/queue`、`POST /trials/inspections`、`POST /trials/{id}/review/retry|approve`、`GET /trials/{id}/export`。前端页面 `#/trials`。
+
 所有数据为固定随机种子生成的模拟业务数据，不能作为实际生产决策证据。项目独立算法、输入边界及业务局限详见 BUSINESS.md。测试与截图统一存放 ../../test-artifacts/gb-1001/，源码不含日志/截图/测试报告。
 清理本项目演示数据：`docker compose down -v --remove-orphans`（会删除本项目命名卷）。
 

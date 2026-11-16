@@ -13,7 +13,7 @@ def metadata():
         "pains": ["平均数掩盖低尾批次", "不同装窑量被错误等权比较", "异常名单没有统一判定门限"],
         "upstream": "窑次质检明细 kiln_quality_202611.csv",
         "downstream": "烧成班长据此决定复核窑次与工艺试验顺序",
-        "entities": ["窑次样本", "分布复盘", "班组复核简报"],
+        "entities": ["窑次样本", "盲评试验", "分布复盘", "班组复核简报"],
         "dataset_name": "11 月第一周 · 120 窑次质检",
         "columns": [{"key": "batch", "label": "窑次", "type": "string"}, {"key": "line", "label": "窑线", "type": "string"}, {"key": "fired", "label": "烧成件数", "type": "number"}, {"key": "passed", "label": "合格件数", "type": "number"}],
         "parameters": [{"key": "iqr_factor", "label": "异常围栏倍数", "type": "number", "default": 1.5, "min": 0.5, "max": 3}, {"key": "target", "label": "目标良率（%）", "type": "number", "default": 93, "min": 50, "max": 100}],

@@ -2,15 +2,16 @@ import time, json
 from sqlalchemy import select, func
 from src.config.database import Session
 from migrations.initial import migrate
-from src.models import User, Dataset, Job, Report, Delivery, Audit
+from src.models import User, Dataset, Job, Report, Delivery, Audit, BlindTrial, TrialGroup, TrialUnit, BlindReview
 from src.services.business import metadata, seed_records, analyze
+from src.services import trials as trial_service
 from src.services.reports import deliver
 from src.utils.security import hash_password
 from src.utils.serialization import checksum
 def seed():
     migrate()
     with Session() as db:
-        for role,name in [('admin','林知 · 业务负责人'),('analyst','陈舟 · 分析员'),('viewer','周禾 · 观察员')]:
+        for role,name in [('admin','林知 · 业务负责人'),('analyst','陈舟 · 分析员'),('viewer','周禾 · 观察员'),('inspector','许窑 · 检验员')]:
             email=role+'@demo.local'
             if not db.scalar(select(User).where(User.email==email)):
                 db.add(User(email=email,name=name,role=role,password=hash_password('Demo123!')))
@@ -31,8 +32,22 @@ def seed():
             r=Report(name='每日业务复核简报',job_id=j.id,destination='业务复核组 · 本地收件箱',interval_seconds=86400,next_run=time.time()+86400,enabled=True)
             db.add(r);db.flush();deliver(db,r)
             db.add(Audit(actor='seed',action='demo.baseline',detail={'dataset':d.id},at=time.time()))
+        if not db.scalar(select(BlindTrial).where(BlindTrial.name=='东窑釉料 A/B 盲评')):
+            owner=db.scalar(select(User).where(User.role=='admin'))
+            from src.schemas.trial import GroupInput, TrialInput
+            seed_trial=trial_service.create(db, TrialInput(name='东窑釉料 A/B 盲评', line='东窑', groups=[
+                GroupInput(name='甲组', recipe='釉料 A · 还原气氛', batches=['QH-001','QH-004']),
+                GroupInput(name='乙组', recipe='釉料 B · 还原气氛', batches=['QH-002','QH-005'])]), owner)
+            db.flush()
+            trial_service.lock(db, seed_trial.id, owner)
+            units=db.scalars(select(TrialUnit).where(TrialUnit.trial_id==seed_trial.id)).all()
+            inspector=db.scalar(select(User).where(User.role=='inspector')) or owner
+            from src.schemas.trial import InspectionInput
+            for index,unit in enumerate(units):
+                trial_service.register_inspection(db, InspectionInput(blind_code=unit.blind_code, fired=210+index*10, passed=196+index*8), inspector)
+            db.add(Audit(actor='seed',action='demo.blind_trial',detail={'trial':seed_trial.id},at=time.time()))
         db.commit()
-        counts={model.__tablename__:db.scalar(select(func.count()).select_from(model)) for model in [User,Dataset,Job,Report,Delivery,Audit]}
+        counts={model.__tablename__:db.scalar(select(func.count()).select_from(model)) for model in [User,Dataset,Job,Report,Delivery,Audit,BlindTrial,BlindReview]}
         print(json.dumps(counts,ensure_ascii=False))
         return counts
 if __name__=='__main__':seed()

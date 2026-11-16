@@ -3,7 +3,20 @@ class Role(str, Enum):
     admin = 'admin'
     analyst = 'analyst'
     viewer = 'viewer'
+    inspector = 'inspector'
 class JobStatus(str, Enum):
+    queued = 'queued'
+    running = 'running'
+    completed = 'completed'
+    failed = 'failed'
+class TrialStatus(str, Enum):
+    registered = 'registered'
+    locked = 'locked'
+    sealed = 'sealed'
+    unblinded = 'unblinded'
+    terminated = 'terminated'
+class ReviewStatus(str, Enum):
+    pending = 'pending'
     queued = 'queued'
     running = 'running'
     completed = 'completed'
